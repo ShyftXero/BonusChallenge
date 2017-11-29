@@ -31,24 +31,17 @@
 		</div>
 
 		<div class="form-group">
-			<label for="value">Initial Value
-				<i class="fa fa-question-circle gray-text" data-toggle="tooltip" data-placement="right" title="This is how many points the challenge is worth initially."></i>
+			<label for="value">Value
+				<i class="fa fa-question-circle gray-text" data-toggle="tooltip" data-placement="right" title="This is how many points the challenge is worth."></i>
 			</label>
 			<input type="number" class="form-control" name="value" placeholder="Enter value" required>
 		</div>
 
 		<div class="form-group">
-			<label for="value">Decay Limit
-				<i class="fa fa-question-circle gray-text" data-toggle="tooltip" data-placement="right" title="The amount of solves before the challenge reaches its minimum value"></i>
+			<label for="value">First Blood Bonus
+				<i class="fa fa-question-circle gray-text" data-toggle="tooltip" data-placement="right" title="The bonus points awarded to the first team to solve the challenge."></i>
 			</label>
-			<input type="number" class="form-control" name="decay" placeholder="Enter decay limit" required>
-		</div>
-
-		<div class="form-group">
-			<label for="value">Minimum Value
-				<i class="fa fa-question-circle gray-text" data-toggle="tooltip" data-placement="right" title="This is the lowest that the challenge can be worth"></i>
-			</label>
-			<input type="number" class="form-control" name="minimum" placeholder="Enter minimum value" required>
+			<input type="number" class="form-control chal-bonus" name="bonus" placeholder="Enter bonus points" required>
 		</div>
 
 		<div class="row">
@@ -118,7 +111,7 @@
 			</div>
 		</div>
 		<input type="hidden" value="{{ nonce }}" name="nonce" id="nonce">
-		<input type="hidden" value="dynamic" name="chaltype" id="chaltype">
+		<input type="hidden" value="first_blood" name="chaltype" id="chaltype">
 		<div style="text-align:center">
 			<button class="btn btn-theme btn-outlined create-challenge-submit" type="submit">Create</button>
 		</div>

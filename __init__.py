@@ -1,23 +1,23 @@
 from CTFd.plugins.challenges import BaseChallenge, CHALLENGE_CLASSES
 from CTFd.plugins import register_plugin_assets_directory
 from CTFd.plugins.keys import get_key_class
-from CTFd.models import db, Solves, WrongKeys, Keys, Challenges, Files, Tags, Teams
+from CTFd.models import db, Solves, WrongKeys, Keys, Challenges, Files, Tags, Teams, Awards
 from CTFd import utils
 import math
 
 
-class DynamicValueChallenge(BaseChallenge):
-    id = "dynamic"  # Unique identifier used to register challenges
-    name = "dynamic"  # Name of a challenge type
+class FirstBloodChallenge(BaseChallenge):
+    id = "first_blood"  # Unique identifier used to register challenges
+    name = "first blood"  # Name of a challenge type
     templates = {  # Handlebars templates used for each aspect of challenge editing & viewing
-        'create': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-create.hbs',
-        'update': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-update.hbs',
-        'modal': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-modal.hbs',
+        'create': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-create.hbs',
+        'update': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-update.hbs',
+        'modal': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-modal.hbs',
     }
     scripts = {  # Scripts that are loaded when a template is loaded
-        'create': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-create.js',
-        'update': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-update.js',
-        'modal': '/plugins/DynamicValueChallenge/assets/dynamic-challenge-modal.js',
+        'create': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-create.js',
+        'update': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-update.js',
+        'modal': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-modal.js',
     }
 
     @staticmethod
@@ -31,14 +31,13 @@ class DynamicValueChallenge(BaseChallenge):
         files = request.files.getlist('files[]')
 
         # Create challenge
-        chal = DynamicChallenge(
+        chal = FirstBloodChallenges(
             name=request.form['name'],
             description=request.form['desc'],
             value=request.form['value'],
             category=request.form['category'],
             type=request.form['chaltype'],
-            minimum=request.form['minimum'],
-            decay=request.form['decay']
+            bonus=request.form['bonus']
         )
 
         if 'hidden' in request.form:
@@ -73,24 +72,22 @@ class DynamicValueChallenge(BaseChallenge):
         :param challenge:
         :return: Challenge object, data dictionary to be returned to the user
         """
-        challenge = DynamicChallenge.query.filter_by(id=challenge.id).first()
+        challenge = FirstBloodChallenges.query.filter_by(id=challenge.id).first()
         data = {
             'id': challenge.id,
             'name': challenge.name,
             'value': challenge.value,
-            'initial': challenge.initial,
-            'decay': challenge.decay,
-            'minimum': challenge.minimum,
+            'bonus': challenge.bonus,
             'description': challenge.description,
             'category': challenge.category,
             'hidden': challenge.hidden,
             'max_attempts': challenge.max_attempts,
             'type': challenge.type,
             'type_data': {
-                'id': DynamicValueChallenge.id,
-                'name': DynamicValueChallenge.name,
-                'templates': DynamicValueChallenge.templates,
-                'scripts': DynamicValueChallenge.scripts,
+                'id': FirstBloodChallenge.id,
+                'name': FirstBloodChallenge.name,
+                'templates': FirstBloodChallenge.templates,
+                'scripts': FirstBloodChallenge.scripts,
             }
         }
         return challenge, data
@@ -105,18 +102,16 @@ class DynamicValueChallenge(BaseChallenge):
         :param request:
         :return:
         """
-        challenge = DynamicChallenge.query.filter_by(id=challenge.id).first()
+        challenge = FirstBloodChallenges.query.filter_by(id=challenge.id).first()
 
         challenge.name = request.form['name']
         challenge.description = request.form['desc']
-        challenge.value = int(request.form.get('value', 0)) if request.form.get('value', 0) else 0
         challenge.max_attempts = int(request.form.get('max_attempts', 0)) if request.form.get('max_attempts', 0) else 0
         challenge.category = request.form['category']
         challenge.hidden = 'hidden' in request.form
 
-        challenge.initial = request.form['initial']
-        challenge.minimum = request.form['minimum']
-        challenge.decay = request.form['decay']
+        challenge.value = request.form['value']
+        challenge.bonus = request.form['bonus']
 
         db.session.commit()
         db.session.close()
@@ -137,7 +132,7 @@ class DynamicValueChallenge(BaseChallenge):
             utils.delete_file(f.id)
         Files.query.filter_by(chal=challenge.id).delete()
         Tags.query.filter_by(chal=challenge.id).delete()
-        DynamicChallenge.query.filter_by(id=challenge.id).delete()
+        FirstBloodChallenges.query.filter_by(id=challenge.id).delete()
         Challenges.query.filter_by(id=challenge.id).delete()
         db.session.commit()
 
@@ -169,17 +164,13 @@ class DynamicValueChallenge(BaseChallenge):
         :param request: The request the user submitted
         :return:
         """
-        chal = DynamicChallenge.query.filter_by(id=chal.id).first()
+        chal = FirstBloodChallenges.query.filter_by(id=chal.id).first()
 
         solve_count = Solves.query.join(Teams, Solves.teamid == Teams.id).filter(Solves.chalid==chal.id, Teams.banned==False).count()
 
-        value = (((chal.minimum - chal.initial)/(chal.decay**2)) * (solve_count**2)) + chal.initial
-        value = math.ceil(value)
-
-        if value < chal.minimum:
-            value = chal.minimum
-
-        chal.value = value
+        if solve_count == 0:
+            name = 'First Blood ({})'.format(chal.name)
+            db.session.add(Awards(team.id, name, chal.bonus))
 
         provided_key = request.form['key'].strip()
         solve = Solves(teamid=team.id, chalid=chal.id, ip=utils.get_ip(req=request), flag=provided_key)
@@ -205,25 +196,21 @@ class DynamicValueChallenge(BaseChallenge):
         db.session.close()
 
 
-class DynamicChallenge(Challenges):
-    __mapper_args__ = {'polymorphic_identity': 'dynamic'}
+class FirstBloodChallenges(Challenges):
+    __mapper_args__ = {'polymorphic_identity': 'first_blood'}
     id = db.Column(None, db.ForeignKey('challenges.id'), primary_key=True)
-    initial = db.Column(db.Integer)
-    minimum = db.Column(db.Integer)
-    decay = db.Column(db.Integer)
+    bonus = db.Column(db.Integer)
 
-    def __init__(self, name, description, value, category, type='dynamic', minimum=1, decay=50):
+    def __init__(self, name, description, value, category, type='dynamic', bonus=50):
         self.name = name
         self.description = description
         self.value = value
-        self.initial = value
+        self.bonus = bonus
         self.category = category
         self.type = type
-        self.minimum = minimum
-        self.decay = decay
 
 
 def load(app):
     app.db.create_all()
-    CHALLENGE_CLASSES['dynamic'] = DynamicValueChallenge
-    register_plugin_assets_directory(app, base_path='/plugins/DynamicValueChallenge/assets/')
+    CHALLENGE_CLASSES['first_blood'] = FirstBloodChallenge
+    register_plugin_assets_directory(app, base_path='/plugins/FirstBloodChallenge/assets/')
