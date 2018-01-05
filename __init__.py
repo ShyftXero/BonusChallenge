@@ -6,18 +6,16 @@ from CTFd import utils
 import math
 
 
-class FirstBloodChallenge(BaseChallenge):
-    id = "first_blood"  # Unique identifier used to register challenges
-    name = "first blood"  # Name of a challenge type
+class BonusChallenge(BaseChallenge):
+    id = "bonus"  # Unique identifier used to register challenges
+    name = "bonus"  # Name of a challenge type
     templates = {  # Handlebars templates used for each aspect of challenge editing & viewing
-        'create': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-create.hbs',
-        'update': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-update.hbs',
-        'modal': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-modal.hbs',
+        'create': '/plugins/BonusChallenge/assets/bonus-challenge-create.hbs',
+        'update': '/plugins/BonusChallenge/assets/bonus-challenge-update.hbs',
     }
     scripts = {  # Scripts that are loaded when a template is loaded
-        'create': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-create.js',
-        'update': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-update.js',
-        'modal': '/plugins/FirstBloodChallenge/assets/dynamic-challenge-modal.js',
+        'create': '/plugins/BonusChallenge/assets/bonus-challenge-create.js',
+        'update': '/plugins/BonusChallenge/assets/bonus-challenge-update.js',
     }
 
     @staticmethod
@@ -31,23 +29,15 @@ class FirstBloodChallenge(BaseChallenge):
         files = request.files.getlist('files[]')
 
         # Create challenge
-        chal = FirstBloodChallenges(
+        chal = BonusChallenges(
             name=request.form['name'],
             description=request.form['desc'],
             value=request.form['value'],
-            category=request.form['category'],
+            category='Bonus Flag',
             type=request.form['chaltype'],
-            bonus=request.form['bonus']
         )
 
-        if 'hidden' in request.form:
-            chal.hidden = True
-        else:
-            chal.hidden = False
-
-        max_attempts = request.form.get('max_attempts')
-        if max_attempts and max_attempts.isdigit():
-            chal.max_attempts = int(max_attempts)
+        chal.hidden = True
 
         db.session.add(chal)
         db.session.commit()
@@ -59,11 +49,6 @@ class FirstBloodChallenge(BaseChallenge):
 
         db.session.commit()
 
-        for f in files:
-            utils.upload_file(file=f, chalid=chal.id)
-
-        db.session.commit()
-
     @staticmethod
     def read(challenge):
         """
@@ -72,22 +57,21 @@ class FirstBloodChallenge(BaseChallenge):
         :param challenge:
         :return: Challenge object, data dictionary to be returned to the user
         """
-        challenge = FirstBloodChallenges.query.filter_by(id=challenge.id).first()
+        challenge = BonusChallenges.query.filter_by(id=challenge.id).first()
         data = {
             'id': challenge.id,
             'name': challenge.name,
             'value': challenge.value,
-            'bonus': challenge.bonus,
             'description': challenge.description,
             'category': challenge.category,
             'hidden': challenge.hidden,
             'max_attempts': challenge.max_attempts,
             'type': challenge.type,
             'type_data': {
-                'id': FirstBloodChallenge.id,
-                'name': FirstBloodChallenge.name,
-                'templates': FirstBloodChallenge.templates,
-                'scripts': FirstBloodChallenge.scripts,
+                'id': BonusChallenge.id,
+                'name': BonusChallenge.name,
+                'templates': BonusChallenge.templates,
+                'scripts': BonusChallenge.scripts,
             }
         }
         return challenge, data
@@ -102,16 +86,11 @@ class FirstBloodChallenge(BaseChallenge):
         :param request:
         :return:
         """
-        challenge = FirstBloodChallenges.query.filter_by(id=challenge.id).first()
+        challenge = BonusChallenges.query.filter_by(id=challenge.id).first()
 
         challenge.name = request.form['name']
         challenge.description = request.form['desc']
-        challenge.max_attempts = int(request.form.get('max_attempts', 0)) if request.form.get('max_attempts', 0) else 0
-        challenge.category = request.form['category']
-        challenge.hidden = 'hidden' in request.form
-
         challenge.value = request.form['value']
-        challenge.bonus = request.form['bonus']
 
         db.session.commit()
         db.session.close()
@@ -132,7 +111,7 @@ class FirstBloodChallenge(BaseChallenge):
             utils.delete_file(f.id)
         Files.query.filter_by(chal=challenge.id).delete()
         Tags.query.filter_by(chal=challenge.id).delete()
-        FirstBloodChallenges.query.filter_by(id=challenge.id).delete()
+        BonusChallenges.query.filter_by(id=challenge.id).delete()
         Challenges.query.filter_by(id=challenge.id).delete()
         db.session.commit()
 
@@ -164,13 +143,7 @@ class FirstBloodChallenge(BaseChallenge):
         :param request: The request the user submitted
         :return:
         """
-        chal = FirstBloodChallenges.query.filter_by(id=chal.id).first()
-
-        solve_count = Solves.query.join(Teams, Solves.teamid == Teams.id).filter(Solves.chalid==chal.id, Teams.banned==False).count()
-
-        if solve_count == 0:
-            name = 'First Blood ({})'.format(chal.name)
-            db.session.add(Awards(team.id, name, chal.bonus))
+        bonus = BonusChallenges.query.filter_by(id=chal.id).first()
 
         provided_key = request.form['key'].strip()
         solve = Solves(teamid=team.id, chalid=chal.id, ip=utils.get_ip(req=request), flag=provided_key)
@@ -196,21 +169,19 @@ class FirstBloodChallenge(BaseChallenge):
         db.session.close()
 
 
-class FirstBloodChallenges(Challenges):
-    __mapper_args__ = {'polymorphic_identity': 'first_blood'}
+class BonusChallenges(Challenges):
+    __mapper_args__ = {'polymorphic_identity': 'bonus'}
     id = db.Column(None, db.ForeignKey('challenges.id'), primary_key=True)
-    bonus = db.Column(db.Integer)
 
-    def __init__(self, name, description, value, category, type='dynamic', bonus=50):
+    def __init__(self, name, description, value, category, type='bonus'):
         self.name = name
         self.description = description
         self.value = value
-        self.bonus = bonus
         self.category = category
         self.type = type
 
 
 def load(app):
     app.db.create_all()
-    CHALLENGE_CLASSES['first_blood'] = FirstBloodChallenge
-    register_plugin_assets_directory(app, base_path='/plugins/FirstBloodChallenge/assets/')
+    CHALLENGE_CLASSES['bonus'] = BonusChallenge
+    register_plugin_assets_directory(app, base_path='/plugins/BonusChallenge/assets/')

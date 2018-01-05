@@ -1,11 +1,11 @@
-# First Blood Challenges for CTFd
+# Bonus Challenges for CTFd
 
-The first team to solve the challenge gets a reward.
+Hidden flags that can be claimed by any team.
 
 # Installation
 
 **REQUIRES: CTFd v1.0.5**
 
 1. Clone this repository to `CTFd/plugins`. It is important that the folder is
-named `FirstBloodChallenge` so CTFd can serve the files in the `assets`
+named `BonusChallenge` so CTFd can serve the files in the `assets`
 directory.
