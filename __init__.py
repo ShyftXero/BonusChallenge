@@ -210,7 +210,7 @@ def load(app):
             return redirect('/scoreboard')
         #try to open the file itself because I can't figure out how to change template path... this way it lives in the assets path
         location = (app.instance_path + '/plugins/BonusChallenge/assets/bonus.html').replace("instance", "CTFd")
-        print(location)
+        # print(location)
         file = open(location, 'r')
         template_string = file.read()
         file.close()
