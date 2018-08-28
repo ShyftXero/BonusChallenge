@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="jumbotron home">
+	<div class="container">
+		<h1>Bonus</h1>
+	</div>
+</div>
+<div class="container main-container">
+	{% if errors %}
+		<div class="container main-container">
+			<div id='errors' class="row">
+		{% for error in errors %}
+				<h1>{{ error }}</h1>
+		{% endfor %}
+			</div>
+		</div>
+	{% else %}
+		{% if score_frozen %}
+			<div class="container main-container">
+				<div class="row">
+					<h1>Scoreboard has been frozen.</h1>
+				</div>
+			</div>
+		{% endif %}
+			<center>
+				<h3>Bonus Flag</h3>
+					<form method="POST" id="guess" action="{{ request.script_root }}/bonus">
+						<input type="hidden" name="nonce" value="{{ nonce }}">
+						<input type="text" onfocus="value=''" name="key" id="key" value="Enter bonus flag" class="form-control" style="width:50%">
+					</form>
+					{% if "Correct" in message %}
+						<h3 style="color:green">{{message}}!!!!</h3>
+						<script>setTimeout(function(){document.location = document.location}, 2000);</script>
+					{% else %}
+						<h3 style="color:red">{{message}}</h3>
+					{% endif %}
+				</br>
+			</center>
+		{% if already_solved %}
+			<table id="already_solved" class="table table-striped">
+				<thead>
+					<tr>
+						<td><b>Description</b>
+						</td>
+						<td><b>Points</b>
+						</td>
+					</tr>
+				</thead>
+				<tbody>
+				{% for bonus in already_solved %}
+					<tr><td>{{ bonus.chal.name }}</td><td>{{ bonus.chal.value }}</td></tr>
+				{% endfor %}
+				</tbody>
+			</table>
+		{% endif %}
+	{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+	<script src="{{ request.script_root }}/themes/{{ ctf_theme() }}/static/js/vendor/plotly.min.js"></script>
+	<script src="{{ request.script_root }}/themes/{{ ctf_theme() }}/static/js/utils.js"></script>
+	<script>
+		$("#flag").keypress(function(event) {
+            if (event.which == 13) {
+                event.preventDefault();
+                $('#guess').submit();
+            }
+        });
+	</script>
+{% endblock %}
