@@ -49,7 +49,7 @@
 				</thead>
 				<tbody>
 				{% for bonus in already_solved %}
-					<tr><td>{{ bonus.chal.name }}</td><td>{{ bonus.chal.value }}</td></tr>
+					<tr><td>{{ bonus.challenge.name }}</td><td>{{ bonus.challenge.value }}</td></tr>
 				{% endfor %}
 				</tbody>
 			</table>
@@ -59,8 +59,8 @@
 {% endblock %}
 
 {% block scripts %}
-	<script src="{{ request.script_root }}/themes/{{ ctf_theme() }}/static/js/vendor/plotly.min.js"></script>
-	<script src="{{ request.script_root }}/themes/{{ ctf_theme() }}/static/js/utils.js"></script>
+	<script src="{{ request.script_root }}/themes/{{ 'ctf_theme()' }}/static/js/vendor/plotly.min.js"></script>
+	<script src="{{ request.script_root }}/themes/{{ 'ctf_theme()' }}/static/js/utils.js"></script>
 	<script>
 		$("#flag").keypress(function(event) {
             if (event.which == 13) {

@@ -6,26 +6,33 @@ import json
 from CTFd.challenges import *
 from CTFd.plugins.challenges import BaseChallenge, CHALLENGE_CLASSES
 from CTFd.plugins import register_plugin_assets_directory
-from CTFd.plugins.keys import get_key_class
-from CTFd.models import db, Solves, WrongKeys, Keys, Challenges, Files, Tags, Teams, Awards
-from CTFd import utils
+from CTFd.plugins.flags import get_flag_class
+from CTFd.models import db, Solves, Fails, Flags, Challenges, Files, Tags, Teams, Awards
+from CTFd.utils.decorators import authed_only
+import CTFd.utils.dates as dates
+# import CTFd.utils.files 
+import CTFd.utils.user as user  
 import math
 import os
-
 
 class BonusChallenge(BaseChallenge):
     id = "bonus"  # Unique identifier used to register challenges
     name = "bonus"  # Name of a challenge type
     templates = {  # Handlebars templates used for each aspect of challenge editing & viewing
-        'create': '/plugins/BonusChallenge/assets/bonus-challenge-create.njk',
-        'update': '/plugins/BonusChallenge/assets/bonus-challenge-update.njk',
-        'modal': '/plugins/BonusChallenge/assets/bonus-challenge-modal.njk'
+        'create': '/plugins/BonusChallenge/assets/create.html',
+        'update': '/plugins/BonusChallenge/assets/update.html',
+        'view': '/plugins/BonusChallenge/assets/view.html'
     }
     scripts = {  # Scripts that are loaded when a template is loaded
-        'create': '/plugins/BonusChallenge/assets/bonus-challenge-create.js',
-        'update': '/plugins/BonusChallenge/assets/bonus-challenge-update.js',
-        'modal': '/plugins/BonusChallenge/assets/bonus-challenge-modal.js'
+        'create': '/plugins/BonusChallenge/assets/create.js',
+        'update': '/plugins/BonusChallenge/assets/update.js',
+        'view': '/plugins/BonusChallenge/assets/view.js'
     }
+
+    # Route at which files are accessible. This must be registered using register_plugin_assets_directory()
+    route = '/plugins/BonusChallenge/assets/'
+    # Blueprint used to access the static_folder directory.
+    blueprint = Blueprint('bonus', __name__, template_folder='templates', static_folder='assets')
 
     @staticmethod
     def create(request):
@@ -35,28 +42,28 @@ class BonusChallenge(BaseChallenge):
         :param request:
         :return:
         """
-        files = request.files.getlist('files[]')
+        data = request.form or request.get_json()
+        
+        challenge = BonusChallenges(**data)
+    
+        print('chal:', challenge.__dict__)
+        # print('json.dumps:', jsonify(challenge))
+        
+        # chal.state = 'visible' # should this be hidden because all bonus challenges are hidden?
 
-        # Create challenge
-        chal = BonusChallenges(
-            name=request.form['name'],
-            description=request.form['description'],
-            value=request.form['value'],
-            category='Bonus Flag',
-            type=request.form['chaltype'],
-        )
-
-        chal.hidden = True
-
-        db.session.add(chal)
+        db.session.add(challenge)
         db.session.commit()
+        
+        print('chal = ', challenge)
+        return challenge
 
-        flag = Keys(chal.id, request.form['key'], request.form['key_type[0]'])
-        if request.form.get('keydata'):
-            flag.data = request.form.get('keydata')
-        db.session.add(flag)
+        #the flag creation process happens after the challenge is created #shyft
+        # flag = Flags(chal.id, request.form['flag'], request.form['key_type[0]'])
+        # if request.form.get('keydata'):
+        #     flag.data = request.form.get('keydata')
+        # db.session.add(flag)
 
-        db.session.commit()
+        # db.session.commit()
 
     @staticmethod
     def read(challenge):
@@ -67,13 +74,14 @@ class BonusChallenge(BaseChallenge):
         :return: Challenge object, data dictionary to be returned to the user
         """
         challenge = BonusChallenges.query.filter_by(id=challenge.id).first()
+        print('in read:', challenge)
         data = {
             'id': challenge.id,
             'name': challenge.name,
             'value': challenge.value,
             'description': challenge.description,
             'category': challenge.category,
-            'hidden': challenge.hidden,
+            'state': challenge.state,
             'max_attempts': challenge.max_attempts,
             'type': challenge.type,
             'type_data': {
@@ -83,7 +91,8 @@ class BonusChallenge(BaseChallenge):
                 'scripts': BonusChallenge.scripts,
             }
         }
-        return challenge, data
+        # return challenge, data # wtf.... this 
+        return data
 
     @staticmethod
     def update(challenge, request):
@@ -112,9 +121,9 @@ class BonusChallenge(BaseChallenge):
         :param challenge:
         :return:
         """
-        WrongKeys.query.filter_by(chalid=challenge.id).delete()
+        Fails.query.filter_by(chalid=challenge.id).delete()
         Solves.query.filter_by(chalid=challenge.id).delete()
-        Keys.query.filter_by(chal=challenge.id).delete()
+        Flags.query.filter_by(chal=challenge.id).delete()
         files = Files.query.filter_by(chal=challenge.id).all()
         for f in files:
             utils.delete_file(f.id)
@@ -137,9 +146,9 @@ class BonusChallenge(BaseChallenge):
         """
 
         provided_key = request.form['key'].strip()
-        chal_keys = Keys.query.filter_by(chal=chal.id).all()
-        for chal_key in chal_keys:
-            if get_key_class(chal_key.type).compare(chal_key, provided_key):
+        chal_flags = Flags.query.filter_by(challenge_id=chal.id).all()
+        for chal_key in chal_flags:
+            if get_flag_class(chal_key.type).compare(chal_key, provided_key):
                 return True, 'Correct'
         return False, 'Incorrect'
 
@@ -155,17 +164,25 @@ class BonusChallenge(BaseChallenge):
         """
         bonus = BonusChallenges.query.filter_by(id=chal.id).first()
 
+        account_id = team.id
         provided_key = request.form['key'].strip()
-        solve = Solves(teamid=team.id, chalid=chal.id, ip=utils.get_ip(req=request), flag=provided_key)
-        db.session.add(solve)
-
-        db.session.commit()
-        db.session.close()
+        # solve = Solves(team_id=account_id, user_id=account_id, challenge_id=chal.id, ip=user.get_ip(req=request), flag=provided_key)
+        try:
+            solve = Solves(team_id=account_id, user_id=account_id, challenge_id=chal.id, ip=user.get_ip(req=request))
+        
+            db.session.add(solve)
+            
+            db.session.commit()
+            # db.session.close() # don't close too soon. There is a parent query above this in /bonus route handler; ctrl-f for 'bhk3'
+        except:
+            db.session.rollback()
+            # db.session.close() # https://docs.sqlalchemy.org/en/latest/errors.html#error-bhk3
+            print('failed inserting solve')
 
     @staticmethod
     def fail(team, chal=None, request=None):
         """
-        This method is used to insert WrongKeys into the database in order to mark an answer incorrect.
+        This method is used to insert Fails into the database in order to mark an answer incorrect.
 
         :param team: The Team object from the database
         :param chal: The Challenge object from the database
@@ -174,23 +191,41 @@ class BonusChallenge(BaseChallenge):
         """
         provided_key = request.form['key'].strip()
         #there is no valid chal.id for a key that doesn't exist... so use a placeholder? hopefully it won't puke...
-        wrong = WrongKeys(teamid=team.id, chalid=31337, ip=utils.get_ip(request), flag=provided_key)
+        wrong = Fails(teamid=team.id, chalid=31337, ip=CTFd.utils.users.get_ip(request), flag=provided_key)
+        
         #this isn't being utilized... watch console for bad flags....
         db.session.add(wrong)
         db.session.commit()
         db.session.close()
 
 
-class BonusChallenges(Challenges):
-    __mapper_args__ = {'polymorphic_identity': 'bonus'}
-    id = db.Column(None, db.ForeignKey('challenges.id'), primary_key=True)
+def jsonDefault(OrderedDict):
+    print('ordered:',OrderedDict)
+    return OrderedDict.__dict__
 
-    def __init__(self, name, description, value, category, type='bonus'):
-        self.name = name
-        self.description = description
-        self.value = value
-        self.category = category
-        self.type = type
+class BonusChallenges(Challenges):
+    __mapper_args__ = {
+        'polymorphic_identity': 'bonus'
+    }
+    # __tablename__ = 'bonus_challenges'
+    # id = db.Column(None, db.ForeignKey('challenges.id'), primary_key=True)
+    # id = db.Column(db.Integer, primary_key=True)
+    
+    
+    # def __init__(self, name, description, value, category, type='bonus', ):
+    def __init__(self, **kwargs):
+        # self.id = kwargs.get('id')
+        # self.name = kwargs.get('name')
+        # self.description = kwargs.get('description')
+        # self.value = kwargs.get('value')
+        # self.category = kwargs.get('category')
+        # self.type = kwargs.get('type')
+        print('self', self)
+        super(BonusChallenges, self).__init__(**kwargs)
+
+    def __repr__(self): 
+        return "<Challenge '%s'>" % self.name
+        # return json.dumps(self.__dict__, default=jsonDefault, indent=4)
 
 
 def load(app):
@@ -206,7 +241,7 @@ def load(app):
     @authed_only #require logged in team to view.
     @during_ctf_time_only
     def bonus():
-        if utils.ctf_paused():
+        if dates.ctf_paused():
             return redirect('/scoreboard')
         #try to open the file itself because I can't figure out how to change template path... this way it lives in the assets path
         location = (app.instance_path + '/plugins/BonusChallenge/assets/bonus.html').replace("instance", "CTFd")
@@ -216,8 +251,8 @@ def load(app):
         file.close()
         # print(template_string)
 
-        #bonus flags already captured by this team
-        already_solved = Solves.query.join(Challenges).filter(Solves.teamid == session.get('id'), Challenges.type == 'bonus').all()
+        #bonus flags already captured by this team  #bhk3 sqlalchemy notes
+        already_solved = Solves.query.join(Challenges).filter(Solves.team_id == session.get('id'), Challenges.type == 'bonus').all()
 
         if request.method == 'GET':
             return render_template_string(template_string, already_solved=already_solved, message='' )
@@ -237,6 +272,7 @@ def load(app):
                 for solved_chal in already_solved: #searching for a resubmitted key
                     if chal.id == solved_chal.id:
                         message = "You've already submitted this flag."
+                        print(message)
                         resubmitted_key = True
                         break
 

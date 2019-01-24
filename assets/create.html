@@ -1,4 +1,4 @@
-<form method="POST" action="{{ script_root() }}/admin/challenges/new" enctype="multipart/form-data">
+<form method="POST" action="{{ script_root }}/admin/challenges/new" enctype="multipart/form-data">
 	<div class="form-group">
 		<label>
 			Name<br>
@@ -6,17 +6,7 @@
 				The name of your challenge
 			</small>
 		</label>
-		<input type="text" class="form-control" name="name" placeholder="Enter challenge name">
-	</div>
-
-	<div class="form-group">
-		<label>
-			Category<br>
-			<small class="form-text text-muted">
-				The category of your challenge
-			</small>
-		</label>
-		<input type="text" class="form-control" name="category" placeholder="Enter challenge category">
+		<input type="text" class="form-control" id='name' name="name" placeholder="Enter challenge name">
 	</div>
 
 	<ul class="nav nav-tabs" role="tablist" id="new-desc-edit">
@@ -44,7 +34,7 @@
 		<div role="tabpanel" class="tab-pane content" id="new-desc-preview" style="height:234px; overflow-y: scroll;">
 		</div>
 	</div>
-
+	
 	<div class="form-group">
 		<label>
 			Value<br>
@@ -55,16 +45,8 @@
 		<input type="number" class="form-control" name="value" placeholder="Enter value" required>
 	</div>
 
-	<div class="form-group">
-		<label>Flag
-			<i class="far fa-question-circle text-muted cursor-help" data-toggle="tooltip" data-placement="right" title="This is the flag or solution for your challenge. You can choose whether your flag is a static string or a regular expression."></i>
-		</label>
-		<input type="text" class="form-control" name="key" placeholder="Enter flag">
-	</div>
-
-
-	<input type="hidden" value="{{ nonce }}" name="nonce" id="nonce">
-	<input type="hidden" value="bonus" name="type" id="type">
+	<input type="hidden" name="state" value="hidden">
+	<input type="hidden" name="type" value="bonus">
 
 	<div class="form-group">
 		<button class="btn btn-primary float-right create-challenge-submit" type="submit">Create</button>
