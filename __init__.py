@@ -46,15 +46,15 @@ class BonusChallenge(BaseChallenge):
         
         challenge = BonusChallenges(**data)
     
-        print('chal:', challenge.__dict__)
-        # print('json.dumps:', jsonify(challenge))
+        # print('chal:', challenge.__dict__)
+        # # print('json.dumps:', jsonify(challenge))
         
         # chal.state = 'visible' # should this be hidden because all bonus challenges are hidden?
 
         db.session.add(challenge)
         db.session.commit()
         
-        print('chal = ', challenge)
+        # print('chal = ', challenge)
         return challenge
 
         #the flag creation process happens after the challenge is created #shyft
@@ -74,7 +74,7 @@ class BonusChallenge(BaseChallenge):
         :return: Challenge object, data dictionary to be returned to the user
         """
         challenge = BonusChallenges.query.filter_by(id=challenge.id).first()
-        print('in read:', challenge)
+        # print('in read:', challenge)
         data = {
             'id': challenge.id,
             'name': challenge.name,
@@ -121,14 +121,14 @@ class BonusChallenge(BaseChallenge):
         :param challenge:
         :return:
         """
-        Fails.query.filter_by(chalid=challenge.id).delete()
-        Solves.query.filter_by(chalid=challenge.id).delete()
-        Flags.query.filter_by(chal=challenge.id).delete()
-        files = Files.query.filter_by(chal=challenge.id).all()
-        for f in files:
-            utils.delete_file(f.id)
-        Files.query.filter_by(chal=challenge.id).delete()
-        Tags.query.filter_by(chal=challenge.id).delete()
+        Fails.query.filter_by(challenge_id=challenge.id).delete()
+        Solves.query.filter_by(challenge_id=challenge.id).delete()
+        # Flags.query.filter_by(chal=challenge.id).delete()
+        # files = Files.query.filter_by(chal=challenge.id).all()
+        # for f in files:
+            # utils.delete_file(f.id)
+        # Files.query.filter_by(challenge_id=challenge.id).delete()
+        Tags.query.filter_by(challenge_id=challenge.id).delete()
         BonusChallenges.query.filter_by(id=challenge.id).delete()
         Challenges.query.filter_by(id=challenge.id).delete()
         db.session.commit()
@@ -177,7 +177,7 @@ class BonusChallenge(BaseChallenge):
         except:
             db.session.rollback()
             # db.session.close() # https://docs.sqlalchemy.org/en/latest/errors.html#error-bhk3
-            print('failed inserting solve')
+            # print('failed inserting solve')
 
     @staticmethod
     def fail(team, chal=None, request=None):
@@ -200,7 +200,7 @@ class BonusChallenge(BaseChallenge):
 
 
 def jsonDefault(OrderedDict):
-    print('ordered:',OrderedDict)
+    # print('ordered:',OrderedDict)
     return OrderedDict.__dict__
 
 class BonusChallenges(Challenges):
@@ -220,7 +220,7 @@ class BonusChallenges(Challenges):
         # self.value = kwargs.get('value')
         # self.category = kwargs.get('category')
         # self.type = kwargs.get('type')
-        print('self', self)
+        # print('self', self)
         super(BonusChallenges, self).__init__(**kwargs)
 
     def __repr__(self): 
@@ -245,12 +245,11 @@ def load(app):
             return redirect('/scoreboard')
         #try to open the file itself because I can't figure out how to change template path... this way it lives in the assets path
         location = (app.instance_path + '/plugins/BonusChallenge/assets/bonus.html').replace("instance", "CTFd")
-        # print(location)
+        # # print(location)
         file = open(location, 'r')
         template_string = file.read()
         file.close()
-        # print(template_string)
-
+        # # print(template_string)
         #bonus flags already captured by this team  #bhk3 sqlalchemy notes
         already_solved = Solves.query.join(Challenges).filter(Solves.team_id == session.get('id'), Challenges.type == 'bonus').all()
 
@@ -272,7 +271,7 @@ def load(app):
                 for solved_chal in already_solved: #searching for a resubmitted key
                     if chal.id == solved_chal.id:
                         message = "You've already submitted this flag."
-                        print(message)
+                        # print(message)
                         resubmitted_key = True
                         break
 
@@ -286,7 +285,8 @@ def load(app):
 
         if provided_valid_key == False or resubmitted_key == True:
             # BonusChallenge.fail(team=team, chal=chal, request=request)
-            print(f"team '{team.name}' submitted a bonus flag: '{request.form.get('key').strip()}'")
+            # print(f"team '{team.name}' submitted a bonus flag: '{request.form.get('key').strip()}'")
+            message = 'Invalid key or you\'ve already submitted this before.' 
 
 
         return render_template_string(template_string, already_solved=already_solved, message=message )
